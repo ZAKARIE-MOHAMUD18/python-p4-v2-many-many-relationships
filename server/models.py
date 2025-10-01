@@ -10,7 +10,19 @@ metadata = MetaData(naming_convention={
 
 db = SQLAlchemy(metadata=metadata)
 
+# --------------------------
+# Association Table
+# --------------------------
+employee_meetings = db.Table(
+    'employee_meetings',
+    db.Column('employee_id', db.Integer, db.ForeignKey('employees.id'), primary_key=True),
+    db.Column('meeting_id', db.Integer, db.ForeignKey('meetings.id'), primary_key=True)
+)
 
+
+# --------------------------
+# Employee Model
+# --------------------------
 class Employee(db.Model):
     __tablename__ = 'employees'
 
@@ -18,10 +30,26 @@ class Employee(db.Model):
     name = db.Column(db.String)
     hire_date = db.Column(db.Date)
 
+    # Many-to-many with meetings
+    meetings = db.relationship(
+        'Meeting',
+        secondary=employee_meetings,
+        back_populates='employees'
+    )
+
+    # One-to-many with assignments
+    assignments = db.relationship('Assignment', back_populates='employee')
+
+    # Association proxy for direct access to projects
+    projects = association_proxy('assignments', 'project')
+
     def __repr__(self):
         return f'<Employee {self.id}, {self.name}, {self.hire_date}>'
 
 
+# --------------------------
+# Meeting Model
+# --------------------------
 class Meeting(db.Model):
     __tablename__ = 'meetings'
 
@@ -30,10 +58,43 @@ class Meeting(db.Model):
     scheduled_time = db.Column(db.DateTime)
     location = db.Column(db.String)
 
+    # Many-to-many with employees
+    employees = db.relationship(
+        'Employee',
+        secondary=employee_meetings,
+        back_populates='meetings'
+    )
+
     def __repr__(self):
         return f'<Meeting {self.id}, {self.topic}, {self.scheduled_time}, {self.location}>'
 
 
+# --------------------------
+# Assignment Model (association object)
+# --------------------------
+class Assignment(db.Model):
+    __tablename__ = 'assignments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    role = db.Column(db.String)
+    start_date = db.Column(db.Date)
+    end_date = db.Column(db.Date)
+
+    # Foreign keys
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'))
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
+
+    # Relationships
+    employee = db.relationship('Employee', back_populates='assignments')
+    project = db.relationship('Project', back_populates='assignments')
+
+    def __repr__(self):
+        return f"<Assignment {self.id}, {self.role}, {self.start_date}, {self.end_date}>"
+
+
+# --------------------------
+# Project Model
+# --------------------------
 class Project(db.Model):
     __tablename__ = 'projects'
 
@@ -41,5 +102,11 @@ class Project(db.Model):
     title = db.Column(db.String)
     budget = db.Column(db.Integer)
 
+    # One-to-many with assignments
+    assignments = db.relationship('Assignment', back_populates='project')
+
+    # Association proxy for direct access to employees
+    employees = association_proxy('assignments', 'employee')
+
     def __repr__(self):
-        return f'<Review {self.id}, {self.title}, {self.budget}>'
+        return f'<Project {self.id}, {self.title}, {self.budget}>'
